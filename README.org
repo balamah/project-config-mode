@@ -1,0 +1,165 @@
+#+TITLE: project-config-mode
+
+* Table of contents :toc:
+- [[#information][Information]]
+- [[#installation][Installation]]
+- [[#usage][Usage]]
+  - [[#basic-keybindings][Basic keybindings]]
+  - [[#basic-project-configuration][Basic project configuration]]
+  - [[#functions-and-macroses][Functions and macroses]]
+  - [[#example-project-configuration][Example project configuration]]
+  - [[#local-configuration][Local configuration]]
+- [[#package-configuration][Package configuration]]
+
+* Information
+The minor mode allows to load per project configuration with snippets
+and run configurations, just like in the Jetbrains IDEs. The project
+is dependent heavily on [[https://github.com/bbatsov/projectile][projectile]] and [[https://github.com/akermu/emacs-libvterm][vterm]].
+
+WARNING: *READ CONFIGURATIONS CAREFULLY* BEFORE LOADING, OTHERWISE YOU
+MAY RUN MALICIOUS CODE.
+
+* Installation
+Paste this snippet into your configuration
+#+begin_src elisp
+(use-package project-config-mode
+  :ensure t
+  :straight (project-config-mode
+			 :host github
+			 :repo "balamah/project-config-mode")
+  :custom
+  (project-config-directory-template
+   "<path/to/straight/repos>/project-config-mode/template-configuration/"))
+#+end_src
+
+Directory =straight/repos= is usually located in your emacs configuration directory.
+
+* Usage
+** Basic keybindings
+| Keychord  | Command                              |
+|-----------+--------------------------------------|
+| C-c p f c | project-config-file-create           |
+| C-c p f d | project-config-directory-find-delete |
+| C-c p f l | project-config-find-file-load        |
+| C-c p f u | project-config-file-unload           |
+| C-c p f o | project-config-file-open             |
+
+** Basic project configuration
+#+begin_src elisp
+;; A configuration file for `project-config-file' for emacs.
+;; The plugin project-config-mode (https://github.com/balamah/project-config-mode)
+;; makes it possible.
+;; To load the configuration file, press `C-c p f l'.
+
+(defvar current-project (project-get-root)
+  "Current project directory")
+
+;; run project
+(defrunc project
+  (message "Ran entry point function"))
+
+(global-set-key (kbd "S-<f10>") 'run-project)
+
+;; add snippets
+(let ((snippet-directory (project-config-file-directory-get-path "snippets")))
+  (when (file-exists-p snippet-directory)
+	(add-to-list 'yas-snippet-dirs 'snippet-directory)
+	(yas-load-directory snippet-directory)))
+#+end_src
+
+** Functions and macroses
+The package has useful functions for running a project, such as
+
+*** run
+Run current file using BINARY-NAME in vterm
+
+#+begin_src elisp
+(run "python" nil)
+(run "python" t)
+#+end_src
+
+*** defrun, defrunc
+The macroses create functions that use =(run)= or =(run-prepare)=.
+Functions =(run)= execute shell commands in vterm, while functions
+with =(run-prepare)= just open window below and execute lisp code.
+Examples
+
+#+begin_src elisp
+;; Create function run-python that uses 'python' binary
+(defrun python "python")
+
+;; This creates function run-localhost that executes (eww "localhost")
+(defrunc localhost
+  (eww "localhost"))
+#+end_src
+
+And of course you would like to bind the functions
+#+begin_src elisp
+(global-set-key (kbd "S-<f10>") 'run-python)
+(global-set-key (kbd "S-<f11>") 'run-localhost)
+#+end_src
+
+** Example project configuration
+Here is example [[https://github.com/balamah/void-dimension/blob/main/.emacs/config.el][configuration]] for my [[https://github.com/balamah/void-dimension/][void dimension minecraft mod]].
+Once the configuration is loaded, lsp-mode will be configured
+according to the config.el and you can run minecraft with the mod
+using hotkeys.
+
+#+begin_src elisp
+(defvar current-project (project-get-root)
+  "Current project directory")
+
+;; make java working normally
+(setq lsp-java-java-path "/usr/lib/jvm/java-26-openjdk/bin/java"
+	  lsp-java-import-gradle-enabled nil
+	  lsp-java-import-gradle-wrapper-enabled t
+	  lsp-java-import-maven-enabled nil
+	  lsp-java-project-import-on-startup t
+	  lsp-response-timeout 30
+	  lsp-enable-file-watchers t
+	  lsp-java-configuration-runtimes [(:name "JavaSE-25"
+										:path "/usr/lib/jvm/java-25-openjdk"
+										:default t)
+									   (:name "JavaSE-26"
+										:path "/usr/lib/jvm/java-26-openjdk"
+										:default t)
+									   (:name "JavaSE-21"
+										:path "/usr/lib/jvm/java-21-openjdk")
+									   (:name "JavaSE-17"
+										:path "/usr/lib/jvm/java-17-openjdk")]
+	  lsp-java-vmargs '("-Xmx4G" "-XX:MaxGCPauseMillis=200"
+						"-Dsun.zip.disableMemoryMapping=true" "-XX:+UseG1GC"
+						"-XX:+UseStringDeduplication"
+						"-Djava.import.generatesMetadataFilesAtProjectRoot=false"
+						"-Dfile.encoding=UTF-8")
+	  )
+
+;; run project
+(defun run-gradle-commands (commands terminal-name)
+  "Run gradle commands using `COMMANDS' in vterm with buffer-name
+`TERMINAL-NAME'. All parameters are strings"
+  (vterm-run (format "builtin cd %s && ./gradlew %s" current-project commands) terminal-name))
+
+(defrunc project-no-build (run-gradle-commands "clean runClient" "*run-mod*"))
+
+(global-set-key (kbd "S-M-<f10>") 'run-project-no-build)
+
+;; register dap-mode template
+(with-eval-after-load 'dap-mode
+  (dap-register-debug-template "Fabric Client (Attach)"
+							   (list :type "java"
+									 :request "attach"
+									 :hostName "localhost"
+									 :port 5005
+									 :name "Fabric Client (Attach)")))
+#+end_src
+
+** Local configuration
+If you need to create configuration which you don't want to put in the
+project, just copy =.emacs/config.el= to =.emacs/config.local.el=
+
+* Package configuration
+Configure these variables as you like
+- project-config-directory-template :: required to be set
+- project-config-file-keybinding-prefix
+- project-config-file-no-file-message

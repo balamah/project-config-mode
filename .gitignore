@@ -1,0 +1,16 @@
+*~*
+*#*
+*.tmp
+*.tmp.*
+*.log
+*.swp
+*.eld
+'
+
+__pycache__/
+node_modules/
+venv/
+
+# dumbass files
+.DS_store
+desktop.ini
