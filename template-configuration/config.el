@@ -1,6 +1,6 @@
 ;; Configuration file for `project-config-file' for emacs.
 ;; The package project-config-mode (https://github.com/balamah/project-config-mode)
-;; makes it possible.
+;; makes possible to load the file.
 ;; To load the configuration file, press `C-c p f l'.
 
 (defvar current-project (project-get-root)
